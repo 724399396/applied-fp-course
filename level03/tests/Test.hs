@@ -44,4 +44,11 @@ main = do
       -- 2) The '<topic>/view' route will respond correctly when given a topic
       -- 3) The '<topic>/view' route will respond with an error when given an empty topic
       -- 4) A gibberish route will return a 404
-
+      describe "Add Comment Route" $ do
+        it "Should return 'Empty Comment' and 400 status" $
+          post "/topic/add" "" `shouldRespondWith` "Empty Comment" {matchStatus = 400}
+      describe "View Topic Route" $ do
+        it "Should return 'View Request not implemented' and 200 status" $
+          get "/topic/view" `shouldRespondWith` "View Request not implemented"
+        it "Should return 'Empty Topic' and 400 status" $
+          get "//view" `shouldRespondWith` "Empty Topic" {matchStatus = 400}

@@ -21,8 +21,13 @@ import qualified Database.SQLite.Simple             as Sql
 import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
-import           FirstApp.Types                     (Comment, CommentText,
-                                                     Error, Topic)
+import           Data.Bifunctor                     (second)
+import           FirstApp.DB.Types                  (DBComment)
+import           FirstApp.Types                     (commentTopic, Comment, CommentText,
+                                                     Error, Topic,
+                                                     fromDbComment,
+                                                     getCommentText, getTopic,
+                                                     mkTopic)
 
 -- ------------------------------------------------------------------------|
 -- You'll need the documentation for sqlite-simple ready for this section! |
@@ -44,7 +49,7 @@ closeDB
   :: FirstAppDB
   -> IO ()
 closeDB =
-  error "closeDb not implemented"
+  Sql.close . dbConn
 
 -- Given a `FilePath` to our SQLite DB file, initialise the database and ensure
 -- our Table is there by running a query to create it, if it doesn't exist
@@ -52,8 +57,11 @@ closeDB =
 initDB
   :: FilePath
   -> IO ( Either SQLiteResponse FirstAppDB )
-initDB fp =
-  error "initDb not implemented"
+initDB fp = do
+  Sql.runDBAction $ (do conn <- Sql.open fp
+                        Sql.execute_ conn createTableQ
+                        return $ FirstAppDB conn
+                    )
   where
   -- Query has an `IsString` instance so string literals like this can be
   -- converted into a `Query` type when the `OverloadedStrings` language
@@ -74,7 +82,7 @@ getComments
   :: FirstAppDB
   -> Topic
   -> IO (Either Error [Comment])
-getComments =
+getComments app topic =
   let
     sql = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
   -- There are several possible implementations of this function. Particularly
@@ -82,35 +90,35 @@ getComments =
   -- cannot be converted to a Comment, or simply ignoring any DbComment that is
   -- not valid.
   in
-    error "getComments not implemented"
+   traverse fromDbComment <$> (Sql.query (dbConn app) sql (Sql.Only (getTopic topic)) :: IO [DBComment])
 
 addCommentToTopic
   :: FirstAppDB
   -> Topic
   -> CommentText
   -> IO (Either Error ())
-addCommentToTopic =
+addCommentToTopic app topic comment =
   let
     sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
   in
-    error "addCommentToTopic not implemented"
+    getCurrentTime >>= \t -> Right <$> Sql.execute (dbConn app) sql (getTopic topic, getCommentText comment, t)
 
 
 getTopics
   :: FirstAppDB
   -> IO (Either Error [Topic])
-getTopics =
+getTopics app =
   let
     sql = "SELECT DISTINCT topic FROM comments"
   in
-    error "getTopics not implemented"
+    traverse (mkTopic . Sql.fromOnly) <$> (Sql.query_ (dbConn app) sql)
 
 deleteTopic
   :: FirstAppDB
   -> Topic
   -> IO (Either Error ())
-deleteTopic =
+deleteTopic app topic =
   let
     sql = "DELETE FROM comments WHERE topic = ?"
   in
-    error "deleteTopic not implemented"
+    Right <$> Sql.execute (dbConn app) sql (Sql.Only (getTopic topic))

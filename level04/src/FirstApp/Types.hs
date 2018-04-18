@@ -30,15 +30,12 @@ import qualified Data.Aeson.Types           as A
 
 import           Data.Time                  (UTCTime)
 
-import           FirstApp.DB.Types          (DBComment)
-import           FirstApp.Types.CommentText (CommentText, mkCommentText
-                                            , getCommentText)
-import           FirstApp.Types.Error       (Error( UnknownRoute
-                                                  , EmptyCommentText
-                                                  , EmptyTopic
-                                                  )
-                                            )
-import           FirstApp.Types.Topic       (Topic, mkTopic, getTopic)
+import           Data.Char                  (isUpper, toLower)
+import           FirstApp.DB.Types          (DBComment(DBComment))
+import           FirstApp.Types.CommentText (CommentText, getCommentText,
+                                             mkCommentText)
+import           FirstApp.Types.Error       (Error (EmptyCommentText, EmptyTopic, UnknownRoute))
+import           FirstApp.Types.Topic       (Topic, getTopic, mkTopic)
 
 -- This is the `Comment` record that we will be sending to users, it's a simple
 -- record type, containing an `Int`, `Topic`, `CommentText`, and `UTCTime`.
@@ -71,8 +68,11 @@ data Comment = Comment
 modFieldLabel
   :: String
   -> String
-modFieldLabel =
-  error "modFieldLabel not implemented"
+modFieldLabel inp =
+  case break isUpper inp of
+    (x, "")   -> x
+    (_, x:xs) -> (toLower x):xs
+
 
 instance ToJSON Comment where
   -- This is one place where we can take advantage of our `Generic` instance.
@@ -97,8 +97,10 @@ instance ToJSON Comment where
 fromDbComment
   :: DBComment
   -> Either Error Comment
-fromDbComment =
-  error "fromDbComment not yet implemented"
+fromDbComment (DBComment cId topic body time) = do
+  t <- mkTopic topic
+  c <- mkCommentText body
+  return $ Comment (CommentId cId) t c time
 
 data RqType
   = AddRq Topic CommentText

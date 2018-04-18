@@ -32,13 +32,16 @@ import qualified Data.Aeson                         as A
 
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
-import           FirstApp.Conf                      (Conf, firstAppConfig)
+import           FirstApp.Conf                      (Conf, dbFilePath,
+                                                     firstAppConfig)
 import qualified FirstApp.DB                        as DB
 import           FirstApp.Types                     (ContentType (JSON, PlainText),
                                                      Error (EmptyCommentText, EmptyTopic, UnknownRoute),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
+
+import           Data.Bifunctor                     (first, second)
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -48,7 +51,10 @@ data StartUpError
   deriving Show
 
 runApp :: IO ()
-runApp = error "runApp needs re-implementing"
+runApp = do reqs <- prepareAppReqs
+            case reqs of
+              Left e -> putStrLn (show e)
+              Right x -> run 3000 (app x)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -61,7 +67,7 @@ runApp = error "runApp needs re-implementing"
 prepareAppReqs
   :: IO ( Either StartUpError DB.FirstAppDB )
 prepareAppReqs =
-  error "prepareAppReqs not implemented"
+  first DbInitErr <$> DB.initDB (dbFilePath firstAppConfig)
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse
@@ -129,12 +135,12 @@ handleRequest
   :: DB.FirstAppDB
   -> RqType
   -> IO (Either Error Response)
-handleRequest _db (AddRq _ _) =
-  (resp200 PlainText "Success" <$) <$> error "AddRq handler not implemented"
-handleRequest _db (ViewRq _)  =
-  error "ViewRq handler not implemented"
+handleRequest _db (AddRq t b) =
+  (resp200 PlainText "Success" <$) <$> DB.addCommentToTopic _db t b
+handleRequest _db (ViewRq t)  =
+  second resp200Json <$> DB.getComments _db t
 handleRequest _db ListRq      =
-  error "ListRq handler not implemented"
+  second resp200Json <$> DB.getTopics _db
 
 mkRequest
   :: Request

@@ -31,17 +31,20 @@ import qualified Data.Aeson                         as A
 
 import qualified FirstApp.Conf                      as Conf
 import qualified FirstApp.DB                        as DB
-import           FirstApp.Types                     (Conf, ContentType (..),
+import           FirstApp.Types                     (getDBFilePath, Conf (dbFilePath), ConfigError, ContentType (..),
                                                      Error (..),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
+import Data.Bifunctor (first)
+import Control.Monad (join)
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
 -- single type so that we can deal with the entire start-up process as a whole.
 data StartUpError
   = DbInitErr SQLiteResponse
+  | ConfigErr ConfigError
   deriving Show
 
 runApp :: IO ()
@@ -63,8 +66,9 @@ runApp = do
 --
 prepareAppReqs
   :: IO ( Either StartUpError ( Conf, DB.FirstAppDB ) )
-prepareAppReqs =
-  error "copy your prepareAppReqs from the previous level."
+prepareAppReqs = do
+  conf <- first ConfigErr <$> Conf.parseOptions "appconfig.json"
+  join <$> traverse (\c -> (c, DB.initDB (getDBFilePath (dbFilePath c))) >>= (return . first DbInitErr . snd)) conf
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse

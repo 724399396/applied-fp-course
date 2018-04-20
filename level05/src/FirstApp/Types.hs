@@ -31,7 +31,7 @@ import           Data.Text                          (Text)
 
 import           System.IO.Error                    (IOError)
 
-import           Data.Monoid                        (Last,
+import           Data.Monoid                        (Last (Last),
                                                      Monoid (mappend, mempty))
 import           Data.Semigroup                     (Semigroup ((<>)))
 
@@ -45,16 +45,11 @@ import qualified Data.Aeson.Types                   as A
 
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 import           FirstApp.DB.Types                  (DbComment (dbCommentComment, dbCommentId, dbCommentTime, dbCommentTopic))
-import           FirstApp.Types.Error               (Error ( UnknownRoute
-                                                           , EmptyCommentText
-                                                           , EmptyTopic
-                                                           , DBError
-                                                           ))
-import           FirstApp.Types.CommentText        ( CommentText
-                                                   , mkCommentText
-                                                   , getCommentText
-                                                   )
-import           FirstApp.Types.Topic              (Topic, mkTopic, getTopic)
+import           FirstApp.Types.CommentText         (CommentText,
+                                                     getCommentText,
+                                                     mkCommentText)
+import           FirstApp.Types.Error               (Error (DBError, EmptyCommentText, EmptyTopic, UnknownRoute))
+import           FirstApp.Types.Topic               (Topic, getTopic, mkTopic)
 
 newtype CommentId = CommentId Int
   deriving (Show, ToJSON)
@@ -163,7 +158,10 @@ newtype DBFilePath = DBFilePath
 -- Add some fields to the ``Conf`` type:
 -- - A customisable port number: ``Port``
 -- - A filepath for our SQLite database: ``DBFilePath``
-data Conf = Conf
+data Conf = Conf {
+  dbPort     :: Port,
+  dbFilePath :: DBFilePath
+  }
 
 -- We're storing our Port as a Word16 to be more precise and prevent invalid
 -- values from being used in our application. However Wai is not so stringent.
@@ -178,12 +176,16 @@ data Conf = Conf
 confPortToWai
   :: Conf
   -> Int
-confPortToWai =
-  error "confPortToWai not implemented"
+confPortToWai (Conf p _) =
+  fromIntegral (getPort p)
 
 -- Similar to when we were considering our application types, leave this empty
 -- for now and add to it as you go.
 data ConfigError = ConfigError
+                 | ConfigFileReadError IOError
+                 | JSONDecodeError String
+                 | MissingPort
+                 | MissingDBFile
   deriving Show
 
 -- Our application will be able to load configuration from both a file and
@@ -220,8 +222,8 @@ data PartialConf = PartialConf
 -- on the ``Semigroup`` instance for Last to always get the last value.
 instance Semigroup PartialConf where
   _a <> _b = PartialConf
-    { pcPort       = error "pcPort (<>) not implemented"
-    , pcDBFilePath = error "pcDBFilePath (<>) not implemented"
+    { pcPort       = (pcPort _a) <> (pcPort _b)
+    , pcDBFilePath = (pcDBFilePath _a) <> (pcDBFilePath _b)
     }
 
 -- We now define our ``Monoid`` instance for ``PartialConf``. Allowing us to
@@ -241,4 +243,4 @@ instance Monoid PartialConf where
 -- have to tell aeson how to go about converting the JSON into our PartialConf
 -- data structure.
 instance FromJSON PartialConf where
-  parseJSON = error "parseJSON for PartialConf not implemented yet."
+  parseJSON = A.withObject "PartialConf" $ \v -> PartialConf <$> (Last . fmap Port <$> v A..:? "port") <*> (Last . fmap DBFilePath <$> v A..:? "db-filepath")

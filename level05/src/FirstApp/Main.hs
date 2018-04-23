@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections     #-}
 {-# OPTIONS_GHC -fno-warn-unused-matches #-}
 module FirstApp.Main
   ( runApp
@@ -29,15 +30,19 @@ import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 import           Data.Aeson                         (ToJSON)
 import qualified Data.Aeson                         as A
 
+import           Control.Monad                      (join)
+import           Data.Bifunctor                     (first, second)
 import qualified FirstApp.Conf                      as Conf
 import qualified FirstApp.DB                        as DB
-import           FirstApp.Types                     (getDBFilePath, Conf (dbFilePath), ConfigError, ContentType (..),
+import           FirstApp.Types                     (Conf (port, dbFilePath),
+                                                     ConfigError,
+                                                     ContentType (..),
                                                      Error (..),
                                                      RqType (AddRq, ListRq, ViewRq),
+                                                     Port (getPort),
+                                                     getDBFilePath,
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
-import Data.Bifunctor (first)
-import Control.Monad (join)
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -53,8 +58,8 @@ runApp = do
   cfgE <- prepareAppReqs
   -- Loading the configuration can fail, so we have to take that into account now.
   case cfgE of
-    Left err   -> undefined
-    Right _cfg -> run undefined undefined
+    Left err   -> error $ "start web app failed bacause can't initiailize: " ++ show err
+    Right _cfg -> run (fromIntegral $ getPort $ port $ fst _cfg) (uncurry app _cfg)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -68,7 +73,7 @@ prepareAppReqs
   :: IO ( Either StartUpError ( Conf, DB.FirstAppDB ) )
 prepareAppReqs = do
   conf <- first ConfigErr <$> Conf.parseOptions "appconfig.json"
-  join <$> traverse (\c -> (c, DB.initDB (getDBFilePath (dbFilePath c))) >>= (return . first DbInitErr . snd)) conf
+  join <$> traverse (\c -> (second (c,) . first DbInitErr) <$> DB.initDB (getDBFilePath (dbFilePath c))) conf
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse

@@ -159,7 +159,7 @@ newtype DBFilePath = DBFilePath
 -- - A customisable port number: ``Port``
 -- - A filepath for our SQLite database: ``DBFilePath``
 data Conf = Conf {
-  dbPort     :: Port,
+  port     :: Port,
   dbFilePath :: DBFilePath
   }
 

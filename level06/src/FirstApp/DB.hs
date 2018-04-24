@@ -10,7 +10,7 @@ module FirstApp.DB
   ) where
 
 import           Control.Monad.IO.Class             (liftIO)
-import           Control.Monad.Reader               (asks)
+import           Control.Monad.Reader               (reader, asks)
 
 import           Data.Bifunctor                     (first)
 import           Data.Text                          (Text)
@@ -63,35 +63,47 @@ initDB fp = Sql.runDBAction $ do
 getDBConn
   :: AppM Connection
 getDBConn =
-  error "getDBConn not implemented"
+  reader (dbConn . envDB)
 
 runDB
   :: (a -> Either Error b)
   -> (Connection -> IO a)
   -> AppM (Either Error b)
-runDB =
-  error "runDB not re-implemented"
+runDB ac fc = do c <- getDBConn
+                 a <- liftIO $ fc c
+                 pure $ ac a
 
 getComments
   :: Topic
   -> AppM (Either Error [Comment])
-getComments =
-  error "Copy your completed 'getComments' and refactor to match the new type signature"
+getComments t =
+  let q = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
+  in
+  runDB (traverse fromDbComment) (\c -> Sql.query c q (Sql.Only . getTopic $ t))
 
 addCommentToTopic
   :: Topic
   -> CommentText
   -> AppM (Either Error ())
-addCommentToTopic =
-  error "Copy your completed 'appCommentToTopic' and refactor to match the new type signature"
+addCommentToTopic t c = do
+    nowish <- liftIO $ getCurrentTime
+    let q = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
+    runDB Right (\conn -> Sql.execute conn q (getTopic t, getCommentText c, nowish))
+
 
 getTopics
   :: AppM (Either Error [Topic])
 getTopics =
-  error "Copy your completed 'getTopics' and refactor to match the new type signature"
+  let q = "SELECT DISTINCT topic FROM comments"
+  in
+  runDB (traverse (mkTopic . Sql.fromOnly )) (\conn -> Sql.query_ conn q)
+
 
 deleteTopic
   :: Topic
   -> AppM (Either Error ())
-deleteTopic =
-  error "Copy your completed 'deleteTopic' and refactor to match the new type signature"
+deleteTopic t =
+  let q = "DELETE FROM comments WHERE topic = ?"
+  in
+  runDB Right (\conn -> Sql.execute conn q (Sql.Only . getTopic $ t))
+

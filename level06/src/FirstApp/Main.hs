@@ -9,7 +9,7 @@ import           Control.Applicative                (liftA2)
 import           Control.Monad                      (join)
 
 import           Control.Monad.IO.Class             (liftIO)
-import           Control.Monad.Reader               (asks)
+import           Control.Monad.Reader               (reader, asks)
 
 import           Network.Wai                        (Application, Request,
                                                      Response, pathInfo,
@@ -44,7 +44,7 @@ import           FirstApp.Types                     (Conf (dbFilePath),
                                                      confPortToWai,
                                                      mkCommentText, mkTopic)
 
-import           FirstApp.AppM                      (AppM, Env (Env, envConfig, envDB, envLoggingFn))
+import           FirstApp.AppM                      (runAppM, AppM, Env (Env, envConfig, envDB, envLoggingFn))
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
@@ -102,11 +102,27 @@ prepareAppReqs = do
 -- within our AppM context, we need to run the AppM to get our IO action out
 -- to be run and handed off to the callback function. We've already written
 -- the function for this so include the 'runAppM' with the Env.
+-- data Env = Env
+--   { envLoggingFn :: Text -> AppM ()
+--   , envConfig    :: Conf
+--   , envDB        :: FirstAppDB
+--   }
+
 app
   :: Env
   -> Application
-app =
-  error "Copy your completed 'app' from the previous level and refactor it here"
+app env rq cb = flip runAppM env $ do
+  rq' <- mkRequest rq
+  resp <-  join $ handleRespErr <$> handleRErr rq'
+  liftIO $ cb resp
+  where
+    handleRespErr :: Either Error Response -> AppM Response
+    handleRespErr = either mkErrorResponse pure
+
+    -- We want to pass the Database through to the handleRequest so it's
+    -- available to all of our handlers.
+    handleRErr :: Either Error RqType -> AppM (Either Error Response)
+    handleRErr = either ( pure . Left ) handleRequest
 
 handleRequest
   :: RqType
@@ -167,6 +183,13 @@ mkErrorResponse EmptyTopic       =
 mkErrorResponse ( DBError _e )    = do
   -- As with our request for the FirstAppDB, we use the asks function from
   -- Control.Monad.Reader and pass the field accessors from the Env record.
-  error "mkErrorResponse needs to 'log' our DB Errors to the console"
+  reader (\e -> envLoggingFn e $ Text.pack $ show _e)
   -- Be a sensible developer and don't leak your DB errors over the internet.
   pure (Res.resp500 PlainText "OH NOES")
+
+
+
+
+
+
+

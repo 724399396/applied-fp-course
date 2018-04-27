@@ -211,8 +211,8 @@ data PartialConf = PartialConf
 -- on the ``Semigroup`` instance for Last to always get the last value.
 instance Semigroup PartialConf where
   _a <> _b = PartialConf
-    { pcPort       = error "pcPort (<>) not implemented"
-    , pcDBFilePath = error "pcDBFilePath (<>) not implemented"
+    { pcPort       = (pcPort _a) <> (pcPort _b)
+    , pcDBFilePath = (pcDBFilePath _a) <> (pcDBFilePath _b)
     }
 
 -- We now define our ``Monoid`` instance for ``PartialConf``. Allowing us to

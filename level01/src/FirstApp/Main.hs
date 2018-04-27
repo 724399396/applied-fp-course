@@ -41,5 +41,5 @@ app _ cb =
 -- needing to worry about any initialisation code you've buried in your
 -- executable Main.hs.
 runApp :: IO ()
-runApp = run 8888 app
+runApp = run 3000 app
 

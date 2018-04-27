@@ -7,6 +7,7 @@ module FirstApp.AppM where
 import           Control.Monad.Except   (MonadError (..))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Control.Monad.Reader   (MonadReader (..))
+import           Control.Monad (join)
 
 import           Data.Text              (Text)
 
@@ -70,38 +71,40 @@ runAppM (AppM m) =
 
 instance Applicative AppM where
   pure :: a -> AppM a
-  pure  = error "pure for AppM not implemented"
+  pure a  = AppM $ \_ -> pure $ pure a
 
   (<*>) :: AppM (a -> b) -> AppM a -> AppM b
-  (<*>) = error "ap for AppM not implemented"
+  ab <*> a = AppM $ \e -> (\ef ea -> ef <*> ea) <$> (runAppM ab e) <*> (runAppM a e)
 
 instance Monad AppM where
   return :: a -> AppM a
-  return = error "return for AppM not implemented"
+  return = pure
 
   (>>=) :: AppM a -> (a -> AppM b) -> AppM b
-  (>>=)  = error "bind for AppM not implemented"
+  a >>= fa = AppM $ \e -> do a' <- runAppM a e
+                             join <$> traverse (\a'' -> runAppM (fa a'') e) a'
 
 instance MonadIO AppM where
   liftIO :: IO a -> AppM a
-  liftIO = error "liftIO for AppM not implemented"
+  liftIO ia = AppM $ \_ -> fmap pure ia
 
 instance MonadReader Env AppM where
   ask :: AppM Env
-  ask = error "ask for AppM not implemented"
+  ask = AppM (return . return)
 
   local :: (Env -> Env) -> AppM a -> AppM a
-  local = error "local for AppM not implemented"
+  local f a = AppM $ \e -> runAppM a (f e)
 
   reader :: (Env -> a) -> AppM a
-  reader = error "reader for AppM not implemented"
+  reader ea = AppM $ \e -> return $ return $ (ea e)
 
 instance MonadError Error AppM where
   throwError :: Error -> AppM a
-  throwError = error "throwError for AppM not implemented"
+  throwError e = AppM $ \_ -> return $ Left e
 
   catchError :: AppM a -> (Error -> AppM a) -> AppM a
-  catchError = error "catchError for AppM not implemented"
+  catchError am ac = AppM $ \e ->
+    join $ flip runAppM e <$> (either ac return <$> runAppM am e)
 
 -- This is a helper function that will `lift` an Either value into our new AppM
 -- by applying `throwError` to the Left value, and using `pure` to lift the
@@ -113,5 +116,4 @@ instance MonadError Error AppM where
 liftEither
   :: Either Error a
   -> AppM a
-liftEither =
-  error "throwLeft not implemented"
+liftEither = either throwError pure

@@ -133,9 +133,7 @@ handleRequest ListRq =
 app
   :: Application
 app req cb = do r <- mkRequest req
-                rsp <- case r >>= handleRequest of
-                  Left e -> return $ mkErrorResponse e
-                  Right rsp -> return $ rsp
+                rsp <- return (either mkErrorResponse id (r >>= handleRequest))
                 cb rsp
 
 runApp :: IO ()

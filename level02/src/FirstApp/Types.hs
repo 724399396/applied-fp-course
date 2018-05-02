@@ -123,7 +123,6 @@ mkCommentText inp =
   then Left EmptyComment
   else Right $ CommentText inp
 
-
 getCommentText
   :: CommentText
   -> Text

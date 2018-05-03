@@ -21,10 +21,10 @@ import qualified Database.SQLite.Simple             as Sql
 import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
-import           Data.Bifunctor                     (second)
+import           Data.Bifunctor                     (first, second)
 import           FirstApp.DB.Types                  (DBComment)
-import           FirstApp.Types                     (commentTopic, Comment, CommentText,
-                                                     Error, Topic,
+import           FirstApp.Types                     (Comment, CommentText,
+                                                     Error (DBError), Topic,
                                                      fromDbComment,
                                                      getCommentText, getTopic,
                                                      mkTopic)
@@ -68,6 +68,9 @@ initDB fp = do
   -- extension is enabled.
     createTableQ = "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT, time TEXT)"
 
+runDB :: (a -> Either Error b) -> IO a -> IO (Either Error b)
+runDB f act = (>>=f) . first DBError <$> Sql.runDBAction act
+
 -- Note that we don't store the `Comment` in the DB, it is the type we build
 -- to send to the outside world. We will be loading our `DbComment` type from
 -- the FirstApp.DB.Types module before converting trying to convert it to a
@@ -90,7 +93,7 @@ getComments app topic =
   -- cannot be converted to a Comment, or simply ignoring any DbComment that is
   -- not valid.
   in
-   traverse fromDbComment <$> (Sql.query (dbConn app) sql (Sql.Only (getTopic topic)) :: IO [DBComment])
+   runDB (traverse fromDbComment) $ (Sql.query (dbConn app) sql (Sql.Only (getTopic topic)))
 
 addCommentToTopic
   :: FirstAppDB
@@ -101,7 +104,7 @@ addCommentToTopic app topic comment =
   let
     sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
   in
-    getCurrentTime >>= \t -> Right <$> Sql.execute (dbConn app) sql (getTopic topic, getCommentText comment, t)
+    getCurrentTime >>= \t -> runDB pure $ Sql.execute (dbConn app) sql (getTopic topic, getCommentText comment, t)
 
 
 getTopics
@@ -111,7 +114,7 @@ getTopics app =
   let
     sql = "SELECT DISTINCT topic FROM comments"
   in
-    traverse (mkTopic . Sql.fromOnly) <$> (Sql.query_ (dbConn app) sql)
+    runDB (traverse (mkTopic . Sql.fromOnly)) $ Sql.query_ (dbConn app) sql
 
 deleteTopic
   :: FirstAppDB
@@ -121,4 +124,4 @@ deleteTopic app topic =
   let
     sql = "DELETE FROM comments WHERE topic = ?"
   in
-    Right <$> Sql.execute (dbConn app) sql (Sql.Only (getTopic topic))
+    runDB pure $ Sql.execute (dbConn app) sql (Sql.Only (getTopic topic))

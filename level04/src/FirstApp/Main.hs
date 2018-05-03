@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 module FirstApp.Main
   ( runApp
@@ -36,7 +37,7 @@ import           FirstApp.Conf                      (Conf, dbFilePath,
                                                      firstAppConfig)
 import qualified FirstApp.DB                        as DB
 import           FirstApp.Types                     (ContentType (JSON, PlainText),
-                                                     Error (EmptyCommentText, EmptyTopic, UnknownRoute),
+                                                     Error (EmptyCommentText, EmptyTopic, UnknownRoute, DBError),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
@@ -54,7 +55,7 @@ runApp :: IO ()
 runApp = do reqs <- prepareAppReqs
             case reqs of
               Left e -> putStrLn (show e)
-              Right x -> run 3000 (app x)
+              Right db-> run 3000 (app db)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -184,3 +185,5 @@ mkErrorResponse EmptyCommentText =
   resp400 PlainText "Empty Comment"
 mkErrorResponse EmptyTopic =
   resp400 PlainText "Empty Topic"
+mkErrorResponse (DBError _ ) =
+  resp500 PlainText "Oh noes"

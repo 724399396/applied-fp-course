@@ -31,10 +31,10 @@ import qualified Data.Aeson.Types           as A
 import           Data.Time                  (UTCTime)
 
 import           Data.Char                  (isUpper, toLower)
-import           FirstApp.DB.Types          (DBComment(DBComment))
+import           FirstApp.DB.Types          (DBComment (DBComment))
 import           FirstApp.Types.CommentText (CommentText, getCommentText,
                                              mkCommentText)
-import           FirstApp.Types.Error       (Error (EmptyCommentText, EmptyTopic, UnknownRoute))
+import           FirstApp.Types.Error       (Error (EmptyCommentText, EmptyTopic, UnknownRoute, DBError))
 import           FirstApp.Types.Topic       (Topic, getTopic, mkTopic)
 
 -- This is the `Comment` record that we will be sending to users, it's a simple

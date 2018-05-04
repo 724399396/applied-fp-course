@@ -54,6 +54,6 @@ parseOptions fp = do
   -- Parse the options from the commandline using 'commandLineParser'
   cc <- commandLineParser
   -- Combine these with the default configuration 'defaultConf'
-  return (fc >>= \c -> makeConfig (defaultConf <> cc <> c))
+  return (fc >>= \c -> makeConfig (defaultConf <> c <> cc))
   -- Return the final configuration value
 

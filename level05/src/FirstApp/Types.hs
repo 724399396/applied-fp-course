@@ -243,4 +243,6 @@ instance Monoid PartialConf where
 -- have to tell aeson how to go about converting the JSON into our PartialConf
 -- data structure.
 instance FromJSON PartialConf where
-  parseJSON = A.withObject "PartialConf" $ \v -> PartialConf <$> (Last . fmap Port <$> v A..:? "port") <*> (Last . fmap DBFilePath <$> v A..:? "db-filepath")
+  parseJSON = A.withObject "PartialConf" $ \v -> PartialConf <$> (parseToLast v "port" Port) <*> (parseToLast v "db-filepath" DBFilePath)
+    where
+      parseToLast obj k t = Last . fmap t <$> obj A..:? k

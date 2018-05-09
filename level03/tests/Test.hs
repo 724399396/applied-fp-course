@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
-import FirstApp.Main (app)
+import           FirstApp.Main  (app)
 
-import Test.Hspec
-import Test.Hspec.Wai
+import           Test.Hspec
+import           Test.Hspec.Wai
 
 main :: IO ()
 main = hspec $ with (pure app) $ do

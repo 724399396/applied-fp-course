@@ -2,7 +2,7 @@
 module FirstApp.Types
   ( Topic
   , CommentText
-  , Comment
+  , Comment (commentTopic)
   , RqType (..)
   , ContentType (..)
   , Error (..)
@@ -11,6 +11,7 @@ module FirstApp.Types
   , getTopic
   , mkCommentText
   , getCommentText
+  , fromDbComment
   )where
 
 import Data.ByteString (ByteString)

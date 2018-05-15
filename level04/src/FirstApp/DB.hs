@@ -1,6 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module FirstApp.DB where
+module FirstApp.DB
+  ( initDB
+  , closeDB
+  , addCommentToTopic
+  , getComments
+  , getTopics
+  , FirstAppConf
+  ) where
 
 import Database.SQLite.Simple (Connection)
 import qualified Database.SQLite.Simple as Sql
@@ -16,7 +23,7 @@ data FirstAppConf = FirstAppConf
 initDB :: FilePath -> IO (Either Error FirstAppConf)
 initDB dbFile = runDB $ do
   c <- Sql.open dbFile
-  Sql.execute_ c "CREATE TABLE IF NOT EXIST comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT, time INTEGER)"
+  Sql.execute_ c "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT, time INTEGER)"
   return (FirstAppConf c)
 
 closeDB :: FirstAppConf -> IO ()

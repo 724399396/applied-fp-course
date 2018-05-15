@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
 module FirstApp.Types.CommentText
   ( CommentText
@@ -9,9 +10,10 @@ import FirstApp.Types.Error (Error (EmptyComment))
 
 import Data.Text (Text)
 import qualified Data.Text as T
+import Data.Aeson (ToJSON)
 
 newtype CommentText = CommentText Text
-  deriving Show
+  deriving (Show, ToJSON)
 
 mkCommentText :: Text ->
   Either Error CommentText

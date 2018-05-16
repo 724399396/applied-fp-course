@@ -1,19 +1,21 @@
 {-# LANGUAGE OverloadedStrings #-}
 module FirstApp.Main
     ( runApp,
-      app
+      app,
+      prepareAppReqs
     ) where
 
 import           Control.Monad              (join)
 import qualified Data.Aeson                 as A
+import           Data.Bifunctor             (first)
 import           Data.ByteString.Lazy       (ByteString)
 import qualified Data.ByteString.Lazy       as LBS
 import           Data.ByteString.Lazy.Char8 (pack)
 import           Data.Text                  (Text)
 import qualified Data.Text.Encoding         as TE
+import           FirstApp.Conf              (dbFilePath, firstAppConfig)
 import           FirstApp.DB                (FirstAppConf, addCommentToTopic,
-                                             closeDB, getComments, getTopics,
-                                             initDB)
+                                             getComments, getTopics, initDB)
 import           FirstApp.Types             (ContentType (Json, PlainText), Error (EmptyComment, EmptyTopic, SqlError, UnknownRoute),
                                              RqType (AddRq, ListRq, ViewRq),
                                              mkCommentText, mkTopic,
@@ -24,8 +26,6 @@ import           Network.Wai                (Application, Request, Response,
                                              pathInfo, responseLBS,
                                              strictRequestBody)
 import           Network.Wai.Handler.Warp   (run)
-import FirstApp.Conf (dbFilePath, firstAppConfig)
-import Data.Bifunctor (first)
 
 mkResponse :: Status -> ContentType -> ByteString -> Response
 mkResponse s c b = responseLBS s [(hContentType, renderContentType c)] b
@@ -74,7 +74,7 @@ runApp = do
   cfg <- prepareAppReqs
   case cfg of
     Right c' -> run 3000 (app c')
-    Left e -> putStrLn $ show e
+    Left e   -> putStrLn $ show e
 
 data StartUpError = DbInitError Error
   deriving Show

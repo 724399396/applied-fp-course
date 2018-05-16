@@ -6,6 +6,7 @@ module FirstApp.DB
   , addCommentToTopic
   , getComments
   , getTopics
+  , deleteTopic
   , FirstAppConf
   ) where
 
@@ -47,3 +48,8 @@ getTopics ::
   FirstAppConf -> IO (Either Error [Topic])
 getTopics conf =
   (traverse (second commentTopic . fromDbComment) =<<) <$> (runDB $ Sql.query_ (conn conf) "select * from comments")
+
+deleteTopic ::
+  FirstAppConf -> Topic -> IO (Either Error ())
+deleteTopic conf t =
+  runDB $ Sql.execute (conn conf) "delete from comments where topic = ?" (Sql.Only (getTopic t))

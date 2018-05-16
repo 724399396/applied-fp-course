@@ -16,9 +16,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     FirstApp.Main
-  other-modules:       FirstApp.Types
-                     , FirstApp.Conf
                      , FirstApp.DB
+                     , FirstApp.Types
+  other-modules:       FirstApp.Conf
                      , FirstApp.DB.Types
                      , FirstApp.Types.CommentText
                      , FirstApp.Types.Error

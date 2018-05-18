@@ -5,29 +5,34 @@ module FirstApp.Main
       prepareAppReqs
     ) where
 
-import           Control.Monad              (join)
-import qualified Data.Aeson                 as A
-import           Data.Bifunctor             (first)
-import           Data.ByteString.Lazy       (ByteString)
-import qualified Data.ByteString.Lazy       as LBS
-import           Data.ByteString.Lazy.Char8 (pack)
-import           Data.Text                  (Text)
-import qualified Data.Text.Encoding         as TE
-import           FirstApp.Conf              (dbFilePath, firstAppConfig)
-import           FirstApp.DB                (FirstAppConf, addCommentToTopic,
-                                             getComments, getTopics, initDB)
-import           FirstApp.Types             (ContentType (Json, PlainText), Error (EmptyComment, EmptyTopic, SqlError, UnknownRoute),
-                                             RqType (AddRq, ListRq, ViewRq),
-                                             mkCommentText, mkTopic,
-                                             renderContentType)
-import FirstApp.AppM (AppM, liftEither)
-import           Network.HTTP.Types         (Status, hContentType, status200,
-                                             status400, status404, status500)
-import           Network.Wai                (Application, Request, Response,
-                                             pathInfo, responseLBS,
-                                             strictRequestBody)
-import           Network.Wai.Handler.Warp   (run)
-import Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class             (liftIO)
+import qualified Data.Aeson                         as A
+import           Data.Bifunctor                     (first)
+import           Data.ByteString.Lazy               (ByteString)
+import qualified Data.ByteString.Lazy               as LBS
+import           Data.ByteString.Lazy.Char8         (pack)
+import           Data.Text                          (Text)
+import qualified Data.Text.Encoding                 as TE
+import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
+import           FirstApp.AppM                      (AppM, liftEither, runAppM)
+import           FirstApp.Conf                      (dbFilePath, firstAppConfig)
+import           FirstApp.DB                        (FirstAppConf,
+                                                     addCommentToTopic,
+                                                     getComments, getTopics,
+                                                     initDB)
+import           FirstApp.Types                     (ContentType (Json, PlainText),
+                                                     Error (EmptyComment, EmptyTopic, SqlError, UnknownRoute),
+                                                     RqType (AddRq, ListRq, ViewRq),
+                                                     mkCommentText, mkTopic,
+                                                     renderContentType)
+import           Network.HTTP.Types                 (Status, hContentType,
+                                                     status200, status400,
+                                                     status404, status500)
+import           Network.Wai                        (Application, Request,
+                                                     Response, pathInfo,
+                                                     responseLBS,
+                                                     strictRequestBody)
+import           Network.Wai.Handler.Warp           (run)
 
 mkResponse :: Status -> ContentType -> ByteString -> Response
 mkResponse s c b = responseLBS s [(hContentType, renderContentType c)] b
@@ -62,14 +67,14 @@ mkRequest r = liftEither =<< case pathInfo r of
   _           -> return $ Left UnknownRoute
 
 handleRequest :: FirstAppConf -> RqType -> AppM Response
-handleRequest conf (AddRq t b) = (*> (pure $ resp200 PlainText "add comment success")) <$> (addCommentToTopic conf t b)
-handleRequest conf (ViewRq t) = (>>= (pure . resp200 Json . A.encode)) <$> (getComments conf t)
-handleRequest conf ListRq = (>>= (pure . resp200 Json . A.encode)) <$> (getTopics conf)
+handleRequest conf (AddRq t b) = (addCommentToTopic conf t b) *> (pure $ resp200 PlainText "add comment success")
+handleRequest conf (ViewRq t) = (resp200 Json . A.encode) <$> (getComments conf t)
+handleRequest conf ListRq = (resp200 Json . A.encode) <$> (getTopics conf)
 
 app :: FirstAppConf -> Application
-app db r cb = do r' <- mkRequest r
-                 resp <- either mkErrorResponse id <$> (join <$> traverse (handleRequest db) r')
-                 cb resp
+app db r cb = do
+  resp <- either mkErrorResponse id <$> runAppM (mkRequest r >>= handleRequest db)
+  cb resp
 
 runApp :: IO ()
 runApp = do
@@ -78,7 +83,7 @@ runApp = do
     Right c' -> run 3000 (app c')
     Left e   -> putStrLn $ show e
 
-data StartUpError = DbInitError Error
+data StartUpError = DbInitError SQLiteResponse
   deriving Show
 
 prepareAppReqs

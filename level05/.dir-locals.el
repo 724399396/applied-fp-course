@@ -2,6 +2,7 @@
 ;;; For more information see (info "(emacs) Directory Variables")
 
 ((haskell-mode
-  (intero-targets "level04:lib" "level04:exe:level04-exe" "level04:test:spec")))
+  (intero-targets "level05:lib" "level05:exe:level05-exe" "level05:test:spec")))
+
 
 

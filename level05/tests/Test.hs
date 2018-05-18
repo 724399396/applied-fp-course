@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 import           FirstApp.Main  (app, prepareAppReqs)
 
-import Control.Monad (join)
 import qualified System.Exit as Exit
 import qualified FirstApp.DB as DB
 import qualified FirstApp.Types as Types
 import           Test.Hspec
 import           Test.Hspec.Wai
+import FirstApp.AppM (liftEither, runAppM)
 
 main :: IO ()
 main = do
@@ -16,7 +16,7 @@ main = do
     Left e -> dieWith e
     Right c -> do
       let app' = pure (app c)
-          flushTopic = (join <$> traverse (DB.deleteTopic c) (Types.mkTopic "haskell")) >>= either dieWith return
+          flushTopic = runAppM ((liftEither $ Types.mkTopic "haskell") >>= (DB.deleteTopic c)) >>= either dieWith return
       hspec $ with (flushTopic >> app') $ do
         describe "POST /{topic}/add" $ do
           it "responds with 200" $ do

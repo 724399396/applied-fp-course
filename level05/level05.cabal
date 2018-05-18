@@ -18,12 +18,12 @@ library
   exposed-modules:     FirstApp.Main
                      , FirstApp.DB
                      , FirstApp.Types
+                     , FirstApp.AppM
   other-modules:       FirstApp.Conf
                      , FirstApp.DB.Types
                      , FirstApp.Types.CommentText
                      , FirstApp.Types.Error
                      , FirstApp.Types.Topic
-                     , FirstApp.AppM
   build-depends:       base >= 4.7 && < 5
                      , wai == 3.2.*
                      , warp == 3.2.*

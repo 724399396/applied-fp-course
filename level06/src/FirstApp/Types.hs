@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings          #-}
 module FirstApp.Types
@@ -8,24 +8,34 @@ module FirstApp.Types
   , RqType (..)
   , ContentType (..)
   , Error (..)
+  , PartialConf (..)
+  , Port (..)
+  , DBFilePath (..)
+  , ConfigError (..)
+  , Conf (..)
   , renderContentType
   , mkTopic
   , getTopic
   , mkCommentText
   , getCommentText
   , fromDbComment
+  , confPortToWai
   )where
 
-import           Data.Aeson                 (ToJSON (toEncoding), camelTo2,
-                                             defaultOptions, fieldLabelModifier,
-                                             genericToEncoding)
+import           Data.Aeson                 (FromJSON, ToJSON (toEncoding),
+                                             camelTo2, defaultOptions,
+                                             fieldLabelModifier,
+                                             genericToEncoding, parseJSON, withObject, (.:?))
 import           Data.ByteString            (ByteString)
+import           Data.Monoid                (Last (Last))
+import           Data.Semigroup             (Semigroup, (<>))
 import           Data.Time                  (UTCTime)
 import           FirstApp.DB.Types          (DbComment (DbComment))
 import           FirstApp.Types.CommentText
 import           FirstApp.Types.Error
 import           FirstApp.Types.Topic
 import           GHC.Generics
+import           Control.Applicative (liftA2)
 
 data RqType = AddRq Topic CommentText
   | ViewRq Topic
@@ -59,3 +69,46 @@ modFieldLabel =
 
 instance ToJSON Comment where
    toEncoding = genericToEncoding $ defaultOptions {fieldLabelModifier = modFieldLabel }
+
+newtype Port = Port
+  { getPort :: Word }
+  deriving (Eq, Show, FromJSON)
+
+newtype DBFilePath = DBFilePath
+  { getDBFilePath :: FilePath }
+  deriving (Eq, Show, FromJSON)
+
+data Conf = Conf
+  { confPort       :: Port
+  , confDBFilePath :: DBFilePath
+  }
+
+confPortToWai :: Conf -> Int
+confPortToWai = fromIntegral . getPort . confPort
+
+data ConfigError
+  = ConfigError
+  | ReadFileError String
+  | DecodeConfError String
+  | MissingConfig String
+  deriving (Show)
+
+data PartialConf = PartialConf
+ { pcPort       :: Last Port
+ , pcDBFilePath :: Last DBFilePath
+ } deriving (Generic, Show)
+
+instance Semigroup PartialConf where
+  _a <> _b = PartialConf
+    { pcPort = pcPort _a <> pcPort _b
+    , pcDBFilePath = pcDBFilePath _a <> pcDBFilePath _b
+    }
+
+instance Monoid PartialConf where
+  mempty = PartialConf mempty mempty
+  mappend = (<>)
+
+instance FromJSON PartialConf where
+  parseJSON = withObject "config" $ \v -> liftA2 PartialConf
+    (Last <$> v .:? "port")
+    (Last <$> v .:? "dbFilePath")

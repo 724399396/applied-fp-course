@@ -14,7 +14,7 @@ main = do
   conf <- prepareAppReqs
   case conf of
     Left e -> dieWith e
-    Right c -> do
+    Right (_,c) -> do
       let app' = pure (app c)
           flushTopic = runAppM ((liftEither $ Types.mkTopic "haskell") >>= (DB.deleteTopic c)) >>= either dieWith return
       hspec $ with (flushTopic >> app') $ do

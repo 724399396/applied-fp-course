@@ -1,3 +1,4 @@
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE OverloadedStrings #-}
 module FirstApp.Main
     ( runApp,
@@ -7,7 +8,7 @@ module FirstApp.Main
 
 import           Control.Monad.IO.Class             (liftIO)
 import qualified Data.Aeson                         as A
-import           Data.Bifunctor                     (first)
+import           Data.Bifunctor                     (first, bimap)
 import           Data.ByteString.Lazy               (ByteString)
 import qualified Data.ByteString.Lazy               as LBS
 import           Data.ByteString.Lazy.Char8         (pack)
@@ -15,14 +16,14 @@ import           Data.Text                          (Text)
 import qualified Data.Text.Encoding                 as TE
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 import           FirstApp.AppM                      (AppM, liftEither, runAppM)
-import           FirstApp.Conf                      (dbFilePath, firstAppConfig)
-import           FirstApp.DB                        (FirstAppConf,
+import           FirstApp.Conf (parseOptions)
+import           FirstApp.DB                        (Connection,
                                                      addCommentToTopic,
                                                      getComments, getTopics,
                                                      initDB)
-import           FirstApp.Types                     (ContentType (Json, PlainText),
+import           FirstApp.Types                     (confDBFilePath, getDBFilePath, confPortToWai, ContentType (Json, PlainText),
                                                      Error (EmptyComment, EmptyTopic, SqlError, UnknownRoute),
-                                                     RqType (AddRq, ListRq, ViewRq),
+                                                     RqType (AddRq, ListRq, ViewRq), Conf, ConfigError (..),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
 import           Network.HTTP.Types                 (Status, hContentType,
@@ -33,6 +34,7 @@ import           Network.Wai                        (Application, Request,
                                                      responseLBS,
                                                      strictRequestBody)
 import           Network.Wai.Handler.Warp           (run)
+import Control.Monad (join)
 
 mkResponse :: Status -> ContentType -> ByteString -> Response
 mkResponse s c b = responseLBS s [(hContentType, renderContentType c)] b
@@ -66,12 +68,12 @@ mkRequest r = liftEither =<< case pathInfo r of
   ["list"]    -> return mkListRq
   _           -> return $ Left UnknownRoute
 
-handleRequest :: FirstAppConf -> RqType -> AppM Response
-handleRequest conf (AddRq t b) = (addCommentToTopic conf t b) *> (pure $ resp200 PlainText "add comment success")
-handleRequest conf (ViewRq t) = (resp200 Json . A.encode) <$> (getComments conf t)
-handleRequest conf ListRq = (resp200 Json . A.encode) <$> (getTopics conf)
+handleRequest :: Connection -> RqType -> AppM Response
+handleRequest conn (AddRq t b) = (addCommentToTopic conn t b) *> (pure $ resp200 PlainText "add comment success")
+handleRequest conn (ViewRq t) = (resp200 Json . A.encode) <$> (getComments conn t)
+handleRequest conn ListRq = (resp200 Json . A.encode) <$> (getTopics conn)
 
-app :: FirstAppConf -> Application
+app :: Connection -> Application
 app db r cb = do
   resp <- either mkErrorResponse id <$> runAppM (mkRequest r >>= handleRequest db)
   cb resp
@@ -80,13 +82,15 @@ runApp :: IO ()
 runApp = do
   cfg <- prepareAppReqs
   case cfg of
-    Right c' -> run 3000 (app c')
+    Right (conf, conn) -> run (confPortToWai conf) (app conn)
     Left e   -> putStrLn $ show e
 
 data StartUpError = DbInitError SQLiteResponse
+                    | ConfReadError ConfigError
   deriving Show
 
 prepareAppReqs
-  :: IO ( Either StartUpError FirstAppConf )
-prepareAppReqs =
-  first DbInitError <$> initDB (dbFilePath firstAppConfig)
+  :: IO ( Either StartUpError (Conf, Connection) )
+prepareAppReqs = do
+  conf <- first ConfReadError <$> parseOptions "appconfig.json"
+  join <$> traverse (\c -> fmap (bimap DbInitError (c,)) $ initDB $ getDBFilePath $ confDBFilePath c) conf

@@ -1,0 +1,70 @@
+name:                level07
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/githubuser/level01#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Author name here
+maintainer:          example@example.com
+copyright:           2018 Author name here
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     FirstApp.Main
+                     , FirstApp.DB
+                     , FirstApp.Types
+                     , FirstApp.AppM
+  other-modules:       FirstApp.Conf
+                     , FirstApp.DB.Types
+                     , FirstApp.Types.CommentText
+                     , FirstApp.Types.Error
+                     , FirstApp.Types.Topic
+                     , FirstApp.Conf.File
+                     , FirstApp.Conf.CommandLine
+  build-depends:       base >= 4.7 && < 5
+                     , wai == 3.2.*
+                     , warp == 3.2.*
+                     , http-types >= 0.12
+                     , bytestring >= 0.10
+                     , text >= 1.2
+                     , sqlite-simple == 0.4.*
+                     , sqlite-simple-errors == 0.6.*
+                     , time >= 1.8
+                     , aeson >= 1.2
+                     , optparse-applicative == 0.14.*
+                     , mtl == 2.2.*
+  ghc-options:         -Wall
+  default-language:    Haskell2010
+
+executable level07-exe
+  hs-source-dirs:      bin
+  main-is:             Main.hs
+  build-depends:       base >= 4.7 && < 5
+                     , level07
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+test-suite spec
+   build-depends:       base >= 4.7 && < 5
+                      , hspec >= 2.2 && < 3.0
+                      , hspec-wai >= 0.6 && < 0.10
+                      , level07
+   type : exitcode-stdio-1.0
+   hs-source-dirs:      tests
+   main-is:             Test.hs
+   default-language:    Haskell2010
+   ghc-options:         -Wall
+
+test-suite doctests
+   default-language:    Haskell2010
+   type:                exitcode-stdio-1.0
+   main-is:             doctests.hs
+   hs-source-dirs:      tests
+   build-depends:       base >= 4.7 && <5
+                      , level07
+                      , doctest >= 0.11 && < 0.16
